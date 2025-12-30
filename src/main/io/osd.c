@@ -1776,64 +1776,15 @@ static bool osdDrawSingleElement(uint8_t item)
         */
 
         if(FUZE_STATUS == 0){
-            switch(LIDAR_STATUS)
-            {
-                case -1:
-                    strcpy(buff, "      H-H-X    ");
-                    break;
-                case 0:
-                    strcpy(buff, "      H-H-Z    ");
-                    break;
-                case 1:
-                    strcpy(buff, "      H-H-C    ");
-                    break;
-                case 2:
-                    strcpy(buff, "      H-H-L    ");
-                    break;
-                case 3:
-                    strcpy(buff, "      H-H-T    ");
-                    break;
-            }
+            strcpy(buff, "     H-H       ");
+                
         }
         else if(FUZE_STATUS == 1){
-            switch(LIDAR_STATUS)
-            {
-                case -1:
-                    strcpy(buff, "     E-H-X     ");
-                    break;
-                case 0:
-                    strcpy(buff, "     E-H-Z     ");
-                    break;
-                case 1:
-                    strcpy(buff, "     E-H-C     ");
-                    break;
-                case 2:
-                    strcpy(buff, "     E-H-L     ");
-                    break;
-                case 3:
-                    strcpy(buff, "     E-H-T     ");
-                    break;
-            }
+            strcpy(buff, "     E-H       ");
         }
-        else if(FUZE_STATUS == 2){
-            switch(LIDAR_STATUS)
-            {
-                case -1:
-                    strcpy(buff, "     E-E-X     ");
-                    break;
-                case 0:
-                    strcpy(buff, "     E-E-Z     ");
-                    break;
-                case 1:
-                    strcpy(buff, "     E-E-C     ");
-                    break;
-                case 2:
-                    strcpy(buff, "     E-E-L     ");
-                    break;
-                case 3:
-                    strcpy(buff, "     E-E-T     ");
-                    break;
-            }
+        else if(FUZE_STATUS == 2){ 
+            strcpy(buff, "     E-E       ");
+                    
         }
         else if(FUZE_STATUS == 3){
             strcpy(buff, "GUVENLIK > AC  ");
@@ -1858,7 +1809,7 @@ static bool osdDrawSingleElement(uint8_t item)
     }
 
     case OSD_MAH_DRAWN: {
-        /* uint8_t mah_digits = osdConfig()->mAh_precision; // Initialize to config value
+        uint8_t mah_digits = osdConfig()->mAh_precision; // Initialize to config value
 
 #ifndef DISABLE_MSP_DJI_COMPAT // IF DJICOMPAT is not supported, there's no need to check for it
         if (isDJICompatibleVideoSystem(osdConfig())) {
@@ -1879,40 +1830,7 @@ static bool osdDrawSingleElement(uint8_t item)
             buff[mah_digits + 1] = '\0';
         }
 
-        osdUpdateBatteryCapacityOrVoltageTextAttributes(&elemAttr); */
-
-        if (ALTITUDE_STATUS == 1)
-        {
-            strcpy(buff, "  PATLATMA AKTIF   ");
-        }
-        else
-        {
-            uint32_t now = millis();
-
-            if (now - lastAlert > 1000)
-            {
-                if (alertVisible)
-                {
-                    for (size_t i = 0; i < 19; i++)
-                    {
-                        buff[i] = ' ';
-                    }
-
-                    alertVisible = false;
-                }
-                else
-                {
-                    strcpy(buff, "PATLATMA KAPALI ");
-                    int length = strlen(buff);
-                    buff[length++] = SYM_TERRAIN_FOLLOWING;
-                    buff[length++] = ' ';
-                    buff[length++] = SYM_ALERT;
-
-                    alertVisible = true;
-                }
-                lastAlert = now;
-            }
-        }
+        osdUpdateBatteryCapacityOrVoltageTextAttributes(&elemAttr); 
 
         break;
     }

@@ -31,26 +31,6 @@
 int FUZE_STATUS = 0;
 serialPortIdentifier_e FUZE_PORT_IDENTIFIER = SERIAL_PORT_USART5;
 
-/*
- * LIDAR STATUS
- *
- * -1 : UNKNOWN
- * 0  : Z (ERROR)
- * 1  : C (DISABLED)
- * 2  : L (ACTIVE AND LOW SIGNAL)
- * 3  : T (ACTIVE AND HIGH SIGNAL)
- */
-int LIDAR_STATUS = -1;
-
-/*
- * ALTITUDE STATUS
- *
- * -1 : UNKNOWN
- * 0  : Low Altitude
- * 1  : High Altitude
- * 
- */
-int ALTITUDE_STATUS = -1;
 
 static serialPort_t* dSerialPort = NULL;
 static bool dInitializationCompleted = false;
@@ -71,22 +51,13 @@ static float AUX5Value = 0; // PATLATMA
 static bool ControlHigh = false;
 static bool SafetyHigh = false;
 static bool ExplosionHigh = false;
-static bool LidarExplosionHigh = false;
 
 static bool fuseConnectedMessageReceived = false;
 static bool fuseConnected = false;
 
 static bool CHARGE_HIGH_REQUESTED = false;
-static bool LIDAR_SENSOR_ACTIVE_REQUESTED = false;
 static bool CHARGE_HIGH = false;
-static bool LIDAR_SENSOR_ACTIVE = true;
 
-static int LIDAR_EXPLOSION_DISTANCE = 400; // cm
-
-static int SAFETY_ALTITUDE_MAX = 2000; // 20 metre yükseldikten sonra patlatabilme izni verilsin veya
-static int SAFETY_ALTITUDE_MIN = -2000; // 20 metre alçalıktan sonra patlatabilme izni verilsin.
-
-static bool altitudeSafetyCheck = false;
 
 static timeUs_t startTimeUs = 0;
 static bool controlCheck = false;
@@ -107,14 +78,6 @@ static float oldAUX2 = 1500;
 static float oldAUX3 = 1500;
 static float oldAUX4 = 1500;
 static float oldAUX5 = 1500;
-
-int32_t getRangeFinderDistance(void){
-    return rangefinderGetLatestRawAltitude();
-}
-
-int32_t getAltitude(void){
-    return baroGetLatestAltitude();
-}
 
 void setFuzeData(int value)
 {
@@ -235,26 +198,13 @@ void parseRcData(void){
         ControlHigh = false;
     }
 
-    if (altitudeSafetyCheck)
-    {   
-        if(AUX5Value > AUX_EDGE_VALUE){
-            if (LIDAR_STATUS == 2 || LIDAR_STATUS == 3)
-            {
-                LidarExplosionHigh = true;
-            }
-            
-            ExplosionHigh = true;
-        }
-        else{
-            if (LIDAR_STATUS == 1)
-            {
-                LidarExplosionHigh = false;
-            }
-            
-            ExplosionHigh = false;
-        }
+    if(AUX5Value > AUX_EDGE_VALUE){
+        ExplosionHigh = true;
     }
-
+    else{
+        ExplosionHigh = false;
+    }
+  
     if(AUX4Value > AUX_EDGE_VALUE){
         SafetyHigh = true;
     }
@@ -266,7 +216,6 @@ void parseRcData(void){
     if(AUX3Value > AUX_EDGE_VALUE){
         if(dLastAux3State != 3){
             CHARGE_HIGH_REQUESTED = true;
-            LIDAR_SENSOR_ACTIVE_REQUESTED = true;
         }
 
         dLastAux3State = 3;
@@ -275,7 +224,6 @@ void parseRcData(void){
     else if(AUX3Value > AUX_EDGE_VALUE_MIN){
         if(dLastAux3State != 2){
             CHARGE_HIGH_REQUESTED = true;
-            LIDAR_SENSOR_ACTIVE_REQUESTED = false;
         }
 
         dLastAux3State = 2;
@@ -284,7 +232,6 @@ void parseRcData(void){
     else{
         if(dLastAux3State != 1){
             CHARGE_HIGH_REQUESTED = false;
-            LIDAR_SENSOR_ACTIVE_REQUESTED = false;
         }
 
         dLastAux3State = 1;
@@ -330,50 +277,24 @@ void sendFuzeData(void){
         }
         else if(ExplosionHigh && fuseConnected){
 
-            if (FUZE_STATUS == 2 && altitudeSafetyCheck)
+            if (FUZE_STATUS == 2)
             {
-                if (!LIDAR_SENSOR_ACTIVE_REQUESTED)
-                {
                     if (LAST_SEND_FUSE_MESSAGE != FM_EXPLOSION)
-                    {
-                        donmezogluSerialPrintC('P');
+                {
+                    donmezogluSerialPrintC('P');
 
-                        LAST_SEND_FUSE_MESSAGE = FM_EXPLOSION;
-                    }
+                    LAST_SEND_FUSE_MESSAGE = FM_EXPLOSION;
                 }
             }
             
         }
-        else if (LidarExplosionHigh && fuseConnected)
-        {
-            if (FUZE_STATUS == 2 && altitudeSafetyCheck)
-            {
-                if (LIDAR_SENSOR_ACTIVE && LIDAR_SENSOR_ACTIVE_REQUESTED)
-                {
-                    if (LIDAR_STATUS == 3)
-                    {
-                        if (LAST_SEND_FUSE_MESSAGE != FM_EXPLOSION)
-                        {
-                            donmezogluSerialPrintC('P');
-
-                            LAST_SEND_FUSE_MESSAGE = FM_EXPLOSION;
-                        }
-                    }
-                }
-            }
-        }
         else if (CHARGE_HIGH_REQUESTED && fuseConnected)
         {
-            if (!LIDAR_SENSOR_ACTIVE_REQUESTED && LIDAR_SENSOR_ACTIVE)
-            {
-                // pass
-            }
-            else{
-                if(LAST_SEND_FUSE_MESSAGE != FM_CHARGE){
-                    donmezogluSerialPrintC('S');
 
-                    LAST_SEND_FUSE_MESSAGE = FM_CHARGE;
-                }
+            if(LAST_SEND_FUSE_MESSAGE != FM_CHARGE){
+                donmezogluSerialPrintC('S');
+
+                LAST_SEND_FUSE_MESSAGE = FM_CHARGE;
             }
         }
         else{
@@ -469,62 +390,6 @@ void awaitFuzeData(void){
     }
 }
 
-void awaitRangeFinderData(void)
-{
-    int32_t distance = getRangeFinderDistance();
-
-    if (distance > LIDAR_EXPLOSION_DISTANCE)
-    {
-        if (LIDAR_SENSOR_ACTIVE_REQUESTED)
-        {
-            LIDAR_SENSOR_ACTIVE = true;
-            LIDAR_STATUS = 2;
-        }else{
-            LIDAR_SENSOR_ACTIVE = false;
-            LIDAR_STATUS = 1;
-        }
-
-    }else if (distance >= 0)
-    {
-        if (LIDAR_SENSOR_ACTIVE_REQUESTED)
-        {
-            LIDAR_SENSOR_ACTIVE = true;
-            LIDAR_STATUS = 3;
-        }else{
-            LIDAR_SENSOR_ACTIVE = false;
-            LIDAR_STATUS = 1;
-        }
-    }
-    else
-    {
-        LIDAR_STATUS = 0;
-    }
-
-    return;
-}
-
-void awaitAltitudeData(void)
-{
-    if(!altitudeSafetyCheck){
-        int32_t altitude = getAltitude();
-        if (altitude > SAFETY_ALTITUDE_MAX || altitude < SAFETY_ALTITUDE_MIN)
-        {
-            altitudeSafetyCheck = true;
-            ALTITUDE_STATUS = 1;
-        }
-        else if (altitude >= 0)
-        {
-            ALTITUDE_STATUS = 0;
-        }
-        else
-        {
-            ALTITUDE_STATUS = -1;
-        }
-    }
-
-    return;
-}
-
 
 void periodicFuseCheck(timeUs_t currentTimeUs){
     if (!controlCheck)
@@ -555,10 +420,6 @@ void periodicTask(timeUs_t currentTimeUs){
     readRcData();
 
     parseRcData();
-
-    awaitAltitudeData();
-
-    awaitRangeFinderData();
 
     sendFuzeData();
 
